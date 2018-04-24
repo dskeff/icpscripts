@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# IBM Cloud Private - Proof of Technology
+#
+# Author : Vikram Khatri vikram.khatri@us.ibm.com
+#
+# Purpose: Login to ICP cluster
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+#TOKEN=$(curl -k -H "Content-Type:application/x-www-form-urlencoded;charset=UTF-8" -d \
+#   "grant_type=password&username=$DEFAULTUSERNAME&password=$DEFAULTPASSWORD&type=id_token&scope=openid" \
+#   https://$MASTERNODE:8443/idprovider/v1/auth/identitytoken | grep -Po '"'"id_token"'"\s*:\s*"\K([^"]*)')
+TOKEN=$(curl -k -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" -d \
+             "grant_type=password&username=admin&password=admin&scope=openid" \
+             https://192.168.142.102:8443/idprovider/v1/auth/identitytoken --insecure | jq -r .id_token)
+
+if [[ "$TOKEN" == "" ]] ; then
+   echo Token not found
+   exit 1
+fi
+
+echo ==========================================================
+echo Obtained Service Account Token is : $TOKEN
+echo ==========================================================
+
+echo ==========================================================
+echo Run kubectl set config commands 
+echo ==========================================================
+
+kubectl config set-cluster ${CLUSTERNAME}.icp --server=https://$MASTERNODE:8001 --insecure-skip-tls-verify=true
+kubectl config set-context ${CLUSTERNAME}.icp-context --cluster=${CLUSTERNAME}.icp
+kubectl config set-credentials admin --token=$TOKEN
+kubectl config set-context ${CLUSTERNAME}.icp-context --user=$DEFAULTUSERNAME --namespace=default
+kubectl config use-context ${CLUSTERNAME}.icp-context
